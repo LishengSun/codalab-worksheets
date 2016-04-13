@@ -20,6 +20,7 @@ var Worksheet = React.createClass({
             focusIndex: -1,  // Which worksheet items to be on (-1 is none)
             subFocusIndex: 0,  // For tables, which row in the table
             userInfo: null, // User info of the current user. (null is the default)
+            updateIntervalId: null, // If some bundle is not ready, refresh the worksheet once every second. Store the interval id here for cancelInterval() later.
         };
     },
 
@@ -303,27 +304,49 @@ var Worksheet = React.createClass({
         $('#command_line').terminal().focus();
     },
 
-    refreshWorksheet: function() {
-        $('#update_progress').show();
-        this.setState({updating: true});
+    refreshWorksheet: function(showUpdateProgress) {
+        if (showUpdateProgress !== false) {
+            $('#update_progress').show();
+        }
         this.state.ws.fetch({
             success: function(data) {
                 $('#update_progress, #worksheet-message').hide();
                 $('#worksheet_content').show();
-                this.setState({updating: false, version: this.state.version + 1});
+                this.setState({version: this.state.version + 1});
                 // Fix out of bounds.
                 var items = this.state.ws.info.items;
                 if (this.state.focusIndex >= items.length)
                   this.setFocus(items.length - 1, 'end');
+                if (!this.allBundlesReady(items) && !this.state.updateIntervalId) {
+                    // if some bundle is not ready, refresh the worksheet once every second
+                    var self = this;
+                    this.setState({updateIntervalId: setInterval(function() {self.refreshWorksheet(false)}, 3000)});
+                } else if (this.allBundlesReady(items) && this.state.updateIntervalId) {
+                    clearInterval(this.state.updateIntervalId);
+                    this.setState({updateIntervalId: null});
+                }
             }.bind(this),
             error: function(xhr, status, err) {
-                this.setState({updating: false});
-
                 $("#worksheet-message").html(xhr.responseText).addClass('alert-danger alert');
                 $('#update_progress').hide();
                 $('#worksheet_container').hide();
             }.bind(this)
         });
+    },
+
+    allBundlesReady: function(items) {
+        for (var i = 0; i < items.length; i++) {
+            var bundle_info = items[i].bundle_info;
+            if (bundle_info) {
+                if (!Array.isArray(bundle_info))
+                    bundle_info = [bundle_info];
+                for (var j = 0; j < bundle_info.length; j++) {
+                    if (bundle_info[j].state && bundle_info[j].state !== 'ready')
+                        return false;
+                }
+            }
+        }
+        return true;
     },
 
     openWorksheet: function(uuid) {
@@ -340,14 +363,11 @@ var Worksheet = React.createClass({
 
     saveAndUpdateWorksheet: function(from_raw) {
         $("#worksheet-message").hide();
-        this.setState({updating: true});
         this.state.ws.saveWorksheet({
             success: function(data) {
-                this.setState({updating: false});
                 this.refreshWorksheet();
             }.bind(this),
             error: function(xhr, status, err) {
-                this.setState({updating: false});
                 $('#update_progress').hide();
                 $('#save_error').show();
                 $("#worksheet-message").html(xhr.responseText).addClass('alert-danger alert').show();
