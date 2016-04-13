@@ -320,8 +320,9 @@ var Worksheet = React.createClass({
                 if (!this.allBundlesReady(items) && !this.state.updateIntervalId) {
                     // if some bundle is not ready, refresh the worksheet once every second
                     var self = this;
-                    this.setState({updateIntervalId: setInterval(function() {self.refreshWorksheet(false)}, 3000)});
+                    this.setState({updateIntervalId: setInterval(function() {self.refreshWorksheet(false)}, 1000)});
                 } else if (this.allBundlesReady(items) && this.state.updateIntervalId) {
+                    // otherwise, clear that interval if it exists
                     clearInterval(this.state.updateIntervalId);
                     this.setState({updateIntervalId: null});
                 }
