@@ -471,7 +471,8 @@ def _deploy():
         run('./cl config email/user %s' % email_info['user'])
         run('./cl config email/password %s' % email_info['password'])
         # Send notifications.
-        run('./cl config admin-email %s' % cfg.getAdminEmail())
+        run('./cl config server/admin_email %s' % cfg.getAdminEmail())
+        run('./cl config server/instance_name %s' % cfg.label)
 
     # Update database
     with cd(env.deploy_codalab_cli_dir):
